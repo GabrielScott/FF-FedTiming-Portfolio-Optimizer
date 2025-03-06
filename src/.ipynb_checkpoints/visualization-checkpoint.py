@@ -367,6 +367,15 @@ def create_interactive_regime_dashboard(returns, fed_regimes, factor_exposures=N
 def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_returns=None, save_path=None):
     """
     Create interactive dashboard of portfolio performance
+STRUCTURE:
+Row 1, Col 1-2: Cumulative Returns
+Row 2, Col 1: Drawdowns
+Row 2, Col 2: Rolling 3-Month Returns
+Row 3, Col 1: Rolling 6-Month Volatility
+Row 3, Col 2: Return Distribution
+Row 4, Col 1-2: Strategy Weights (pie charts
+
+    
     
     Parameters:
     -----------
@@ -388,21 +397,22 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
     
     # Create subplot figure
     fig = make_subplots(
-        rows=3, cols=2,
+        rows=4, cols=2,  # Increase to 4 rows to accommodate all chart types
         subplot_titles=(
             'Cumulative Returns',
             'Drawdowns',
             'Rolling 3-Month Returns',
-            'Strategy Weights',
+            'Rolling 6-Month Volatility',
             'Return Distribution',
-            'Rolling 6-Month Volatility'
+            'Strategy Weights'
         ),
         specs=[
-            [{"colspan": 2}, None],
-            [{}, {"type": "domain"}],  # Change {} to {"type": "domain"} for pie charts
-            [{}, {}]
+            [{"colspan": 2}, None],      # Row 1: Cumulative returns (spans both columns)
+            [{"type": "xy"}, {"type": "xy"}],  # Row 2: Drawdowns and volatility
+            [{"type": "xy"}, {"type": "xy"}],  # Row 3: Rolling returns and distribution
+            [{"type": "domain", "colspan": 2}, None]  # Row 4: Weights as pie chart
         ],
-        vertical_spacing=0.10
+        vertical_spacing=0.08
     )
     
     # Add benchmark to strategies if provided
@@ -430,7 +440,7 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
         # Calculate rolling volatility (6-month, annualized)
         rolling_volatility[name] = returns.rolling(126).std() * np.sqrt(252)
     
-    # Add cumulative return traces
+    # Add cumulative return traces on 1, 1
     for name, cum_ret in cumulative_returns.items():
         fig.add_trace(
             go.Scatter(
@@ -442,7 +452,7 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
             row=1, col=1
         )
     
-    # Add drawdown traces
+    # Add drawdown traces on 2, 1
     for name, dd in drawdowns.items():
         fig.add_trace(
             go.Scatter(
@@ -455,7 +465,7 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
             row=2, col=1
         )
     
-    # Add rolling return traces
+    # Add rolling return traces on 2, 2
     for name, roll_ret in rolling_returns.items():
         fig.add_trace(
             go.Scatter(
@@ -467,8 +477,22 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
             ),
             row=2, col=2
         )
+
+    # Add rolling volatility on 3, 1
+    for name, vol in rolling_volatility.items():
+        fig.add_trace(
+            go.Scatter(
+                x=vol.index,
+                y=vol,
+                name=f"{name} Vol",
+                hovertemplate=f"{name} Volatility: %{{y:.2%}}<extra></extra>",
+                visible=False
+            ),
+            row=3, col=1
+        )
+
     
-    # Add return distribution
+    # Add return distribution on 3, 2
     for name, returns in all_returns.items():
         fig.add_trace(
             go.Histogram(
@@ -479,21 +503,10 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
                 nbinsx=30,
                 visible='legendonly'
             ),
-            row=3, col=1
-        )
-    
-    # Add rolling volatility
-    for name, vol in rolling_volatility.items():
-        fig.add_trace(
-            go.Scatter(
-                x=vol.index,
-                y=vol,
-                name=f"{name} Vol",
-                hovertemplate=f"{name} Volatility: %{{y:.2%}}<extra></extra>",
-                visible='legendonly'
-            ),
             row=3, col=2
         )
+    
+
     
     # Add weights for strategies
     for name, weight_df in weights.items():
@@ -526,7 +539,7 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
                 title=f"{name} Latest Weights",
                 visible='legendonly'
             ),
-            row=2, col=2
+            row=4, col=1
         )
     
     # Update layout
@@ -544,7 +557,7 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
         )
     )
     
-    # Update axes
+    # Update axes titles
     fig.update_xaxes(title_text="Date", row=1, col=1)
     fig.update_yaxes(title_text="Cumulative Return", row=1, col=1)
     
@@ -553,12 +566,14 @@ def create_portfolio_performance_dashboard(strategy_returns, weights, benchmark_
     
     fig.update_xaxes(title_text="Date", row=2, col=2)
     fig.update_yaxes(title_text="3-Month Return", row=2, col=2)
+
+    fig.update_xaxes(title_text="Date", row=3, col=1)
+    fig.update_yaxes(title_text="Annualized Volatility", row=3, col=1)
     
-    fig.update_xaxes(title_text="Daily Return", row=3, col=1)
-    fig.update_yaxes(title_text="Probability Density", row=3, col=1)
+    fig.update_xaxes(title_text="Daily Return", row=3, col=2)
+    fig.update_yaxes(title_text="Probability Density", row=3, col=2)
     
-    fig.update_xaxes(title_text="Date", row=3, col=2)
-    fig.update_yaxes(title_text="Annualized Volatility", row=3, col=2)
+
     
     # Save as HTML file
     if save_path is None:
